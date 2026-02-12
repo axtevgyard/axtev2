@@ -1,0 +1,55 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: farmgame_db
+    environment:
+      POSTGRES_DB: farmgame
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: farmgame_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bot:
+    build: .
+    container_name: farmgame_bot
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/farmgame
+      REDIS_URL: redis://redis:6379/0
+      BOT_TOKEN: ${BOT_TOKEN}
+      ADMIN_IDS: ${ADMIN_IDS:-123456}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: farmgame_network
